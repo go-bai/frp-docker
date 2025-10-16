@@ -304,19 +304,13 @@ cmd_list_tunnels() {
             continue
         fi
 
-        local name protocol local_port remote_port enabled created status_text
+        local name protocol local_port remote_port enabled created
         name=$(echo "$tunnel" | jq -r '.name // "N/A"')
         protocol=$(echo "$tunnel" | jq -r '.protocol // "tcp"')
         local_port=$(echo "$tunnel" | jq -r '.local_port // "N/A"')
         remote_port=$(echo "$tunnel" | jq -r '.remote_port // "N/A"')
         enabled=$(echo "$tunnel" | jq -r '.enabled // true')
         created=$(echo "$tunnel" | jq -r '.created // "Unknown"')
-
-        if [[ "$enabled" == "true" ]]; then
-            status_text="ENABLED"
-        else
-            status_text="DISABLED"
-        fi
 
         # Print row with colors applied correctly
         printf "%-20s %-10s %-12s %-12s " "$name" "$protocol" "$local_port" "$remote_port"
