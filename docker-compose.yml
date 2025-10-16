@@ -1,0 +1,125 @@
+version: '3.8'
+
+# FRP Docker Compose - Enterprise Grade Configuration
+# Supports both client and server deployments
+# Author: Claude Code AI Assistant
+
+services:
+  # FRP Server Service
+  frp-server:
+    build: .
+    container_name: frp-server
+    hostname: frp-server
+    restart: unless-stopped
+    network_mode: host  # Required for server mode
+    environment:
+      - FRP_MODE=server
+      - FRP_VERSION=latest
+      - FRP_SERVER_PORT=7000
+      - FRP_WEB_PORT=7500
+      - FRP_LOG_LEVEL=info
+    volumes:
+      - frp_server_data:/app/configs
+      - frp_server_logs:/app/logs
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: ["CMD", "/app/scripts/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "com.docker.compose.service=frp-server"
+      - "description=FRP Server for secure tunneling"
+
+  # FRP Client Service (commented out by default)
+  # frp-client:
+  #   build: .
+  #   container_name: frp-client
+  #   hostname: frp-client
+  #   restart: unless-stopped
+  #   environment:
+  #     - FRP_MODE=client
+  #     - FRP_VERSION=latest
+  #     - FRP_SERVER_ADDR=YOUR_SERVER_IP
+  #     - FRP_SERVER_PORT=7000
+  #     - FRP_TOKEN=YOUR_AUTH_TOKEN
+  #     - FRP_LOG_LEVEL=info
+  #   volumes:
+  #     - frp_client_data:/app/configs
+  #     - frp_client_logs:/app/logs
+  #     - /etc/timezone:/etc/timezone:ro
+  #     - /etc/localtime:/etc/localtime:ro
+  #   # network_mode: host  # Use for host networking
+  #   # network_mode: "container:target-container"  # Use for shared networking
+  #   healthcheck:
+  #     test: ["CMD", "/app/scripts/healthcheck.sh"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 10s
+  #   labels:
+  #     - "com.docker.compose.service=frp-client"
+  #     - "description=FRP Client for secure tunneling"
+
+  # Example: Web application that uses FRP client as sidecar
+  # web-app:
+  #   image: nginx:alpine
+  #   container_name: web-app
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8080:80"
+  #   volumes:
+  #     - ./html:/usr/share/nginx/html:ro
+
+  # frp-client-sidecar:
+  #   build: .
+  #   container_name: frp-client-sidecar
+  #   restart: unless-stopped
+  #   network_mode: "container:web-app"
+  #   environment:
+  #     - FRP_MODE=client
+  #     - FRP_SERVER_ADDR=YOUR_SERVER_IP
+  #     - FRP_SERVER_PORT=7000
+  #     - FRP_TOKEN=YOUR_AUTH_TOKEN
+  #   volumes:
+  #     - frp_sidecar_data:/app/configs
+  #     - frp_sidecar_logs:/app/logs
+  #   depends_on:
+  #     - web-app
+
+# Persistent volumes for configuration and logs
+volumes:
+  frp_server_data:
+    driver: local
+    labels:
+      - "description=FRP Server configuration data"
+  frp_server_logs:
+    driver: local
+    labels:
+      - "description=FRP Server logs"
+  frp_client_data:
+    driver: local
+    labels:
+      - "description=FRP Client configuration data"
+  frp_client_logs:
+    driver: local
+    labels:
+      - "description=FRP Client logs"
+  frp_sidecar_data:
+    driver: local
+    labels:
+      - "description=FRP Sidecar configuration data"
+  frp_sidecar_logs:
+    driver: local
+    labels:
+      - "description=FRP Sidecar logs"
+
+# Optional: Custom network for multi-container setups
+# networks:
+#   frp-network:
+#     driver: bridge
+#     ipam:
+#       config:
+#         - subnet: 172.20.0.0/16

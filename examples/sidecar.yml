@@ -1,0 +1,51 @@
+# Sidecar Example - FRP client as sidecar for existing application
+version: '3.8'
+
+services:
+  # Main application (example: nginx web server)
+  web-app:
+    image: nginx:alpine
+    container_name: web-app-example
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./html:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # FRP client sidecar - shares network namespace with web-app
+  frp-sidecar:
+    build: .
+    container_name: frp-sidecar-example
+    restart: unless-stopped
+    network_mode: "container:web-app-example"  # Share network with web-app
+    environment:
+      - FRP_MODE=client
+      - FRP_VERSION=latest
+      - FRP_SERVER_ADDR=YOUR_SERVER_IP  # Replace with actual server IP
+      - FRP_SERVER_PORT=7000
+      - FRP_TOKEN=YOUR_AUTH_TOKEN  # Replace with actual token
+      - FRP_LOG_LEVEL=info
+    volumes:
+      - ./data/sidecar:/app/configs
+      - ./logs/sidecar:/app/logs
+    depends_on:
+      - web-app
+    healthcheck:
+      test: ["CMD", "/app/scripts/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+# To run:
+# 1. Create html directory: mkdir -p html && echo "<h1>Hello World</h1>" > html/index.html
+# 2. Replace YOUR_SERVER_IP and YOUR_AUTH_TOKEN with actual values
+# 3. docker-compose -f examples/sidecar.yml up -d
+# 4. Configure tunnel: docker exec -it frp-sidecar-example /app/scripts/frp_cli.sh
+# 5. In CLI, add tunnel: add web-tunnel 80 8080
+# 6. Access via FRP server on port 8080
