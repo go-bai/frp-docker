@@ -9,7 +9,7 @@ A high-quality, enterprise-grade Docker container for [frp (Fast Reverse Proxy)]
 ## 🚀 Features
 
 - **🔄 Dual Mode Operation**: Seamless server and client mode switching
-- **📱 Intelligent CLI**: Interactive shell for tunnel management
+- **📱 Intelligent CLI**: Interactive CLI tool for tunnel management
 - **🔐 Security First**: Automatic auth token generation and secure defaults
 - **🏗️ Sidecar Ready**: Perfect for container network namespace sharing
 - **📦 Auto-Download**: Automatic FRP binary download and updates
@@ -61,7 +61,7 @@ docker run -d \
   ghcr.io/go-bai/frp-docker:latest
 
 # Access interactive CLI
-docker exec -it frp-client shell
+docker exec -it frp-client frp-cli
 ```
 
 ### Sidecar Mode
@@ -123,15 +123,13 @@ make build
 
 ## 🎮 CLI Commands
 
-The simplified interactive CLI provides essential tunnel management:
+The interactive CLI provides essential tunnel management for client mode:
 
 ```bash
-# Access CLI (multiple ways)
+# Access CLI in running client container
 docker exec -it frp-client frp-cli
-# OR
-docker exec -it frp-client shell
 
-# Essential commands:
+# Essential CLI commands:
 frp-cli > help                    # Show help
 frp-cli > status                  # Show connection and tunnel status
 frp-cli > add web-tunnel 80 8080  # Add tunnel: local:80 -> remote:8080
@@ -322,9 +320,9 @@ Access the web dashboard at `http://server-ip:7500`:
    # Get current auth token
    docker exec frp-server cat /app/configs/server_auth.txt
 
-   # Update client token
-   docker exec -it frp-client shell
-   frp-cli > login
+   # Update client token and access CLI
+   docker exec -it frp-client frp-cli
+   # Then use CLI to reconfigure with new token
    ```
 
 3. **Binary Download Issues**
