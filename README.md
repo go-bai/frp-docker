@@ -17,6 +17,20 @@ A high-quality, enterprise-grade Docker container for [frp (Fast Reverse Proxy)]
 - **🔍 Health Checks**: Built-in health monitoring for both modes
 - **📊 Enterprise Ready**: Comprehensive logging and configuration management
 
+## 📦 Installation
+
+```bash
+# Pull the latest image from GitHub Container Registry
+docker pull ghcr.io/go-bai/frp-docker:latest
+
+# Or pull a specific version
+docker pull ghcr.io/go-bai/frp-docker:v1.0.0
+```
+
+**Available Tags:**
+- `latest` - Latest stable release
+- `v1.0.0` - Specific version release
+
 ## 📋 Quick Start
 
 ### Server Mode
@@ -27,7 +41,7 @@ docker run -d \
   --name frp-server \
   --network host \
   -e FRP_MODE=server \
-  frp-docker
+  ghcr.io/go-bai/frp-docker:latest
 
 # Get authentication token
 docker exec frp-server cat /app/configs/server_auth.txt
@@ -44,7 +58,7 @@ docker run -d \
   -e FRP_SERVER_ADDR=YOUR_SERVER_IP \
   -e FRP_SERVER_PORT=7000 \
   -e FRP_TOKEN=YOUR_AUTH_TOKEN \
-  frp-docker
+  ghcr.io/go-bai/frp-docker:latest
 
 # Access interactive CLI
 docker exec -it frp-client shell
@@ -63,15 +77,27 @@ docker run -d \
   -e FRP_MODE=client \
   -e FRP_SERVER_ADDR=YOUR_SERVER_IP \
   -e FRP_TOKEN=YOUR_AUTH_TOKEN \
-  frp-docker
+  ghcr.io/go-bai/frp-docker:latest
 ```
 
-## 🛠️ Building
+## 🛠️ Installation & Building
+
+### Using Pre-built Images (Recommended)
 
 ```bash
-git clone <repository>
+# Pull the latest image
+docker pull ghcr.io/go-bai/frp-docker:latest
+
+# Or pull a specific version
+docker pull ghcr.io/go-bai/frp-docker:v1.0.0
+```
+
+### Building from Source
+
+```bash
+git clone https://github.com/go-bai/frp-docker.git
 cd frp-docker
-docker build -t frp-docker .
+make build
 ```
 
 ## ⚙️ Configuration
@@ -138,7 +164,7 @@ Protocol (tcp): tcp
 version: '3.8'
 services:
   frp-server:
-    build: .
+    image: ghcr.io/go-bai/frp-docker:latest
     container_name: frp-server
     restart: unless-stopped
     network_mode: host
@@ -171,7 +197,7 @@ services:
       - "8080:80"
 
   frp-client:
-    build: .
+    image: ghcr.io/go-bai/frp-docker:latest
     container_name: frp-client
     network_mode: "container:web-app"
     environment:
@@ -221,13 +247,13 @@ services:
 ### Custom Binary Version
 
 ```bash
-docker run -e FRP_VERSION=v0.52.0 frp-docker
+docker run -e FRP_VERSION=v0.52.0 ghcr.io/go-bai/frp-docker:latest
 ```
 
 ### Development Mode with Debug Logging
 
 ```bash
-docker run -e FRP_LOG_LEVEL=debug frp-docker
+docker run -e FRP_LOG_LEVEL=debug ghcr.io/go-bai/frp-docker:latest
 ```
 
 ### Multi-Container Network Sharing
@@ -238,13 +264,13 @@ docker network create frp-net
 
 # Start containers
 docker run --network frp-net --name app my-app
-docker run --network container:app --name frp-client frp-docker
+docker run --network container:app --name frp-client ghcr.io/go-bai/frp-docker:latest
 ```
 
 ### Persistent Configuration
 
 ```bash
-docker run -v $(pwd)/frp-config:/app/configs frp-docker
+docker run -v $(pwd)/frp-config:/app/configs ghcr.io/go-bai/frp-docker:latest
 ```
 
 ## 📊 Monitoring & Logging
@@ -311,7 +337,7 @@ Access the web dashboard at `http://server-ip:7500`:
 ### Debug Mode
 
 ```bash
-docker run -e FRP_LOG_LEVEL=debug frp-docker
+docker run -e FRP_LOG_LEVEL=debug ghcr.io/go-bai/frp-docker:latest
 docker logs -f container-name
 ```
 
