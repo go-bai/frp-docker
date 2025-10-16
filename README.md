@@ -216,28 +216,59 @@ services:
 
 ## 📁 File Structure
 
+### Project Structure (Source)
+
+```
+frp-docker/
+├── build.sh                # Build automation script
+├── Dockerfile              # Container definition
+├── Makefile                # Build and test automation
+├── README.md               # Project documentation
+├── docker-compose.yml      # Multi-container examples
+├── configs/                # Default configuration templates
+├── examples/               # Docker Compose examples
+│   ├── client.yml          # Client configuration example
+│   ├── server.yml          # Server configuration example
+│   └── sidecar.yml         # Sidecar deployment example
+├── scripts/                # Management scripts
+│   ├── entrypoint.sh       # Main entry point
+│   ├── download_frp.sh     # Binary management
+│   ├── server_init.sh      # Server initialization
+│   ├── client_init.sh      # Client initialization
+│   ├── frp_cli.sh          # Interactive CLI
+│   └── healthcheck.sh      # Health monitoring
+└── tests/                  # Comprehensive test suite
+    ├── README.md           # Test documentation
+    ├── run_tests.sh        # Test runner
+    ├── demo_*.sh           # Demo scripts
+    ├── test_*.sh           # Unit and integration tests
+    └── quick_test.sh       # Quick validation test
+```
+
+### Runtime Structure (Container)
+
 ```
 /app/
-├── frp/                 # FRP binaries
-│   ├── frps            # Server binary
-│   ├── frpc            # Client binary
-│   ├── VERSION         # Installed version
-│   └── INFO            # Installation metadata
-├── configs/            # Configuration files
-│   ├── frps.ini        # Server config
-│   ├── frpc.ini        # Client config
-│   ├── server_auth.txt # Server auth info
-│   └── client_state.json # Client state
-├── logs/               # Log files
-│   ├── frps.log        # Server logs
-│   └── frpc.log        # Client logs
-└── scripts/            # Management scripts
-    ├── entrypoint.sh   # Main entry point
-    ├── download_frp.sh # Binary management
-    ├── server_init.sh  # Server initialization
-    ├── client_init.sh  # Client initialization
-    ├── frp_cli.sh      # Interactive CLI
-    └── healthcheck.sh  # Health monitoring
+├── frp/                    # FRP binaries (downloaded at runtime)
+│   ├── frps                # Server binary
+│   ├── frpc                # Client binary
+│   ├── VERSION             # Installed version
+│   └── INFO                # Installation metadata
+├── configs/                # Configuration files
+│   ├── frps.yaml           # Server config (YAML format)
+│   ├── frpc.yaml           # Client config (YAML format)
+│   ├── server_auth.txt     # Server auth info
+│   └── client_state.json   # Client tunnel state
+├── logs/                   # Log files
+│   ├── frps.log            # Server logs
+│   └── frpc.log            # Client logs
+└── scripts/                # Management scripts (copied from source)
+    ├── entrypoint.sh       # Main entry point
+    ├── download_frp.sh     # Binary management
+    ├── server_init.sh      # Server initialization
+    ├── client_init.sh      # Client initialization
+    ├── frp_cli.sh          # Interactive CLI
+    └── healthcheck.sh      # Health monitoring
 ```
 
 ## 🔧 Advanced Usage
