@@ -12,6 +12,8 @@ A high-quality, enterprise-grade Docker container for [frp (Fast Reverse Proxy)]
 - **Dual Mode Operation**: Seamless server and client mode switching
 - **Supervisord Process Management**: Both modes use supervisord as PID 1 for robust process management
 - **Built-in SSH Server**: Optional SSH server for client mode (disabled by default)
+- **Docker in Docker Support**: Built-in Docker CLI for managing containers (socket mount)
+- **Golang Development Ready**: Pre-installed Go 1.25.4 for building and development
 - **NVIDIA GPU Support**: Ready for GPU workloads with nvidia-smi support
 - **Ubuntu 22.04 Base**: Stable, well-supported base image with excellent compatibility
 - **Intelligent CLI**: Interactive CLI tool for tunnel management (client mode)
@@ -294,6 +296,220 @@ docker exec frp-client nvidia-smi
 The container includes these environment variables:
 - `NVIDIA_VISIBLE_DEVICES=all` - Exposes all GPUs to the container
 - `NVIDIA_DRIVER_CAPABILITIES=compute,utility` - Enables CUDA compute and nvidia-smi
+
+## Docker in Docker Support
+
+The container includes Docker CLI and docker-compose for managing containers within the FRP client/server.
+
+### How It Works
+
+The container uses **Docker socket mounting** to access the host's Docker daemon:
+- Docker CLI is pre-installed in the image
+- Mount the host's Docker socket: `/var/run/docker.sock`
+- The `frp` user is added to the `docker` group for permissions
+
+### Basic Usage
+
+```bash
+# Start container with Docker socket mounted
+docker run -d \
+  --name frp-client \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e FRP_MODE=client \
+  -e FRP_SERVER_ADDR=your-server.com \
+  -e FRP_TOKEN=your-token \
+  ghcr.io/go-bai/frp-docker:latest
+
+# Use Docker CLI inside the container
+docker exec frp-client docker ps
+docker exec frp-client docker images
+docker exec frp-client docker run hello-world
+```
+
+### Use Cases
+
+**1. Container Management via FRP Tunnel**
+
+```bash
+# Expose Docker socket via FRP tunnel
+# In frpc.yaml, add:
+proxies:
+- name: "docker-api"
+  type: "tcp"
+  localIP: "127.0.0.1"
+  localPort: 2375  # Docker API port
+  remotePort: 12375
+
+# Then manage containers remotely
+docker -H tcp://your-server.com:12375 ps
+```
+
+**2. Build and Deploy Containers Remotely**
+
+```bash
+# Build image inside FRP container
+docker exec frp-client docker build -t myapp:latest /path/to/dockerfile
+
+# Run container
+docker exec frp-client docker run -d myapp:latest
+```
+
+**3. Docker Compose Support**
+
+```bash
+# Use docker-compose inside container
+docker exec frp-client docker compose -f /path/to/compose.yml up -d
+docker exec frp-client docker compose ps
+```
+
+### Docker Compose Example
+
+```yaml
+version: '3.8'
+services:
+  frp-client:
+    image: ghcr.io/go-bai/frp-docker:latest
+    container_name: frp-client
+    restart: unless-stopped
+    environment:
+      - FRP_MODE=client
+      - FRP_SERVER_ADDR=your-server.com
+      - FRP_TOKEN=your-auth-token
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # Enable Docker-in-Docker
+      - frp_client_config:/app/configs
+      - frp_client_logs:/app/logs
+
+volumes:
+  frp_client_config:
+  frp_client_logs:
+```
+
+### Security Considerations
+
+⚠️ **Important Security Notes:**
+
+1. **Host Access**: Mounting Docker socket gives the container **full access** to the host's Docker daemon
+2. **Root Equivalent**: Container can start privileged containers and mount host filesystems
+3. **Trust**: Only mount the socket if you trust the container and its processes
+4. **Alternative**: Consider using Docker's remote API with TLS authentication for production
+
+**Recommended for**:
+- ✅ Development and testing environments
+- ✅ Trusted internal networks
+- ✅ CI/CD pipelines
+
+**Not recommended for**:
+- ❌ Untrusted or public-facing containers
+- ❌ Multi-tenant environments
+- ❌ Production without additional security measures
+
+### Verify Docker Access
+
+```bash
+# Check Docker CLI version
+docker exec frp-client docker --version
+
+# Check Docker Compose version
+docker exec frp-client docker compose version
+
+# Test Docker access
+docker exec frp-client docker info
+
+# Check user permissions
+docker exec frp-client id
+docker exec frp-client groups
+```
+
+## Golang Development Environment
+
+The container includes Go 1.25.4 pre-installed for building and development tasks.
+
+### Environment
+
+- **Go Version**: 1.25.4
+- **GOROOT**: `/usr/local/go`
+- **GOPATH**: `/go`
+- **PATH**: Includes `/usr/local/go/bin` and `/go/bin`
+
+### Basic Usage
+
+```bash
+# Check Go version
+docker exec frp-client go version
+
+# Build a Go project
+docker exec frp-client go build -o /app/myapp main.go
+
+# Run Go code
+docker exec frp-client go run main.go
+
+# Get dependencies
+docker exec frp-client go get github.com/example/package
+
+# Run tests
+docker exec frp-client go test ./...
+```
+
+### Building Projects
+
+**Example: Build a simple Go application**
+
+```bash
+# Create a simple Go program
+docker exec frp-client bash -c 'cat > /tmp/hello.go << EOF
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello from FRP Docker!")
+}
+EOF'
+
+# Build it
+docker exec frp-client go build -o /tmp/hello /tmp/hello.go
+
+# Run it
+docker exec frp-client /tmp/hello
+```
+
+### With Volume Mount
+
+```bash
+# Mount your Go project into the container
+docker run -d \
+  --name frp-client \
+  -v /path/to/your/go/project:/workspace \
+  -e FRP_MODE=client \
+  frp-docker:latest
+
+# Build your project
+docker exec frp-client sh -c "cd /workspace && go build"
+```
+
+### CI/CD Integration
+
+```yaml
+version: '3.8'
+services:
+  frp-build:
+    image: frp-docker:latest
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    command: sh -c "go build -o bin/app && go test ./..."
+```
+
+### Available Go Tools
+
+```bash
+# Go commands
+docker exec frp-client go version    # 1.25.4
+docker exec frp-client go env         # Show environment
+docker exec frp-client gofmt          # Format code
+docker exec frp-client go vet         # Examine code
+```
 
 ## CLI Commands
 

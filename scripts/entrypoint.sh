@@ -99,7 +99,29 @@ validate_environment() {
 
 # Download and setup FRP binary
 setup_frp_binary() {
-    log_info "Setting up FRP binary..."
+    log_info "Checking FRP binary..."
+
+    # Check if binaries already exist (pre-installed in image)
+    if [[ -f "${FRP_DIR}/frps" ]] && [[ -f "${FRP_DIR}/frpc" ]]; then
+        log_info "FRP binaries found in image"
+
+        # Verify binaries are executable
+        if [[ -x "${FRP_DIR}/frps" ]] && [[ -x "${FRP_DIR}/frpc" ]]; then
+            local version="unknown"
+            if [[ -f "${FRP_DIR}/VERSION" ]]; then
+                version=$(cat "${FRP_DIR}/VERSION")
+            fi
+            log_info "Using pre-installed FRP version: ${version}"
+            return 0
+        else
+            log_warn "Binaries found but not executable, fixing permissions..."
+            chmod +x "${FRP_DIR}/frps" "${FRP_DIR}/frpc"
+            return 0
+        fi
+    fi
+
+    # Binaries not found, try to download (fallback for compatibility)
+    log_warn "FRP binaries not found in image, attempting runtime download..."
 
     # Source the download script
     if [[ -f "${SCRIPT_DIR}/download_frp.sh" ]]; then
@@ -107,7 +129,7 @@ setup_frp_binary() {
         source "${SCRIPT_DIR}/download_frp.sh"
         download_frp_binary
     else
-        error_exit "FRP download script not found: ${SCRIPT_DIR}/download_frp.sh"
+        error_exit "FRP binaries not found and download script unavailable"
     fi
 }
 

@@ -25,7 +25,34 @@ RUN apt-get update && apt-get install -y \
     iproute2 \
     gnupg2 \
     wget \
+    lsb-release \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Docker CLI for Docker-in-Docker support (socket mount)
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+    gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+    https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | \
+    tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y docker-ce-cli docker-compose-plugin && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Golang 1.25.4
+ARG GO_VERSION=1.25.4
+ENV GOPATH=/go \
+    PATH=/usr/local/go/bin:/go/bin:${PATH}
+
+RUN set -ex && \
+    ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then GO_ARCH="amd64"; fi && \
+    if [ "$ARCH" = "arm64" ]; then GO_ARCH="arm64"; fi && \
+    curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tar.gz && \
+    tar -C /usr/local -xzf /tmp/go.tar.gz && \
+    rm /tmp/go.tar.gz && \
+    mkdir -p /go/bin /go/pkg /go/src && \
+    chmod -R 777 /go && \
+    go version
 
 # Create non-root user for security
 RUN groupadd -g 1000 frp && \
@@ -48,6 +75,39 @@ COPY configs/ ./configs/
 RUN chmod +x scripts/* && \
     chown -R frp:frp /app && \
     ln -sf /app/scripts/frp_cli.sh /usr/local/bin/frp-cli
+
+# Download and install FRP binaries at build time
+ARG FRP_VERSION=latest
+ARG TARGETARCH
+RUN set -ex && \
+    echo "Building for architecture: ${TARGETARCH:-amd64}" && \
+    FRP_ARCH="${TARGETARCH:-amd64}" && \
+    if [ "$FRP_ARCH" = "amd64" ]; then FRP_ARCH="amd64"; fi && \
+    if [ "$FRP_ARCH" = "arm64" ]; then FRP_ARCH="arm64"; fi && \
+    echo "Fetching latest FRP version..." && \
+    if [ "$FRP_VERSION" = "latest" ]; then \
+        FRP_VERSION=$(curl -fsSL https://api.github.com/repos/fatedier/frp/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")'); \
+    fi && \
+    echo "FRP Version: $FRP_VERSION" && \
+    echo "FRP Architecture: $FRP_ARCH" && \
+    FRP_VERSION_NUM=$(echo $FRP_VERSION | sed 's/^v//') && \
+    DOWNLOAD_URL="https://github.com/fatedier/frp/releases/download/${FRP_VERSION}/frp_${FRP_VERSION_NUM}_linux_${FRP_ARCH}.tar.gz" && \
+    echo "Downloading from: $DOWNLOAD_URL" && \
+    curl -fsSL "$DOWNLOAD_URL" -o /tmp/frp.tar.gz && \
+    echo "Extracting FRP binaries..." && \
+    tar -xzf /tmp/frp.tar.gz -C /tmp && \
+    FRP_EXTRACT_DIR=$(find /tmp -maxdepth 1 -name "frp_*_linux_${FRP_ARCH}" -type d | head -n 1) && \
+    echo "Installing from: $FRP_EXTRACT_DIR" && \
+    cp "$FRP_EXTRACT_DIR/frps" /app/frp/ && \
+    cp "$FRP_EXTRACT_DIR/frpc" /app/frp/ && \
+    chmod +x /app/frp/frps /app/frp/frpc && \
+    echo "$FRP_VERSION" > /app/frp/VERSION && \
+    echo "Installed: $FRP_VERSION for $FRP_ARCH at $(date -u)" > /app/frp/INFO && \
+    rm -rf /tmp/frp* && \
+    chown -R frp:frp /app/frp && \
+    echo "FRP installation completed" && \
+    /app/frp/frps --version && \
+    /app/frp/frpc --version
 
 # Expose commonly used ports
 EXPOSE 7000 7500 8080
