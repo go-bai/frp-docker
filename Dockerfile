@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y \
     gnupg2 \
     wget \
     lsb-release \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI for Docker-in-Docker support (socket mount)
@@ -53,6 +54,20 @@ RUN set -ex && \
     mkdir -p /go/bin /go/pkg /go/src && \
     chmod -R 777 /go && \
     go version
+
+# Install NVM (Node Version Manager)
+ARG NVM_VERSION=v0.40.1
+ENV NVM_DIR=/usr/local/nvm \
+    NODE_VERSION=node
+
+RUN set -ex && \
+    mkdir -p $NVM_DIR && \
+    curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" -o /tmp/nvm-install.sh && \
+    bash /tmp/nvm-install.sh && \
+    rm /tmp/nvm-install.sh && \
+    echo 'export NVM_DIR="/usr/local/nvm"' >> /etc/bash.bashrc && \
+    echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> /etc/bash.bashrc && \
+    echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"' >> /etc/bash.bashrc
 
 # Create non-root user for security
 RUN groupadd -g 1000 frp && \

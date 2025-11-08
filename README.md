@@ -14,6 +14,8 @@ A high-quality, enterprise-grade Docker container for [frp (Fast Reverse Proxy)]
 - **Built-in SSH Server**: Optional SSH server for client mode (disabled by default)
 - **Docker in Docker Support**: Built-in Docker CLI for managing containers (socket mount)
 - **Golang Development Ready**: Pre-installed Go 1.25.4 for building and development
+- **Node.js Development Ready**: Pre-installed NVM v0.40.1 for Node.js version management
+- **Git Version Control**: Pre-installed Git for source code management
 - **NVIDIA GPU Support**: Ready for GPU workloads with nvidia-smi support
 - **Ubuntu 22.04 Base**: Stable, well-supported base image with excellent compatibility
 - **Intelligent CLI**: Interactive CLI tool for tunnel management (client mode)
@@ -509,6 +511,130 @@ docker exec frp-client go version    # 1.25.4
 docker exec frp-client go env         # Show environment
 docker exec frp-client gofmt          # Format code
 docker exec frp-client go vet         # Examine code
+```
+
+## Node.js Development Environment
+
+The container includes NVM (Node Version Manager) pre-installed for managing Node.js versions.
+
+### Environment
+
+- **NVM Version**: v0.40.1
+- **NVM Directory**: `/usr/local/nvm`
+- **Auto-loaded**: NVM is automatically loaded in bash sessions
+
+### Installing Node.js
+
+```bash
+# Source NVM (or start a new bash session)
+docker exec frp-client bash -c "source /etc/bash.bashrc && nvm --version"
+
+# Install latest LTS version
+docker exec frp-client bash -c "source /etc/bash.bashrc && nvm install --lts"
+
+# Install specific version
+docker exec frp-client bash -c "source /etc/bash.bashrc && nvm install 20.11.0"
+
+# Install latest version
+docker exec frp-client bash -c "source /etc/bash.bashrc && nvm install node"
+
+# List installed versions
+docker exec frp-client bash -c "source /etc/bash.bashrc && nvm list"
+
+# Use specific version
+docker exec frp-client bash -c "source /etc/bash.bashrc && nvm use 20"
+```
+
+### Using Node.js
+
+```bash
+# Check Node.js version (after installation)
+docker exec frp-client bash -c "source /etc/bash.bashrc && node --version"
+
+# Check npm version
+docker exec frp-client bash -c "source /etc/bash.bashrc && npm --version"
+
+# Run a Node.js script
+docker exec frp-client bash -c "source /etc/bash.bashrc && node script.js"
+
+# Install packages with npm
+docker exec frp-client bash -c "source /etc/bash.bashrc && npm install express"
+```
+
+### Persistent Node.js Installation
+
+To persist Node.js versions across container restarts, mount the NVM directory:
+
+```bash
+docker run -d \
+  --name frp-client \
+  -v nvm-data:/usr/local/nvm \
+  -e FRP_MODE=client \
+  frp-docker:latest
+```
+
+### Example: Node.js Development
+
+```bash
+# Create a simple Express app
+docker exec frp-client bash -c "source /etc/bash.bashrc && \
+  nvm install --lts && \
+  mkdir -p /workspace/myapp && \
+  cd /workspace/myapp && \
+  npm init -y && \
+  npm install express"
+
+# Create server file
+docker exec frp-client bash -c 'cat > /workspace/myapp/server.js << EOF
+const express = require("express");
+const app = express();
+app.get("/", (req, res) => res.send("Hello from FRP Docker!"));
+app.listen(3000, () => console.log("Server running on port 3000"));
+EOF'
+
+# Run the server
+docker exec frp-client bash -c "source /etc/bash.bashrc && \
+  cd /workspace/myapp && \
+  node server.js"
+```
+
+## Git Version Control
+
+The container includes Git pre-installed for version control operations.
+
+### Basic Usage
+
+```bash
+# Check Git version
+docker exec frp-client git --version
+
+# Configure Git (first time)
+docker exec frp-client git config --global user.name "Your Name"
+docker exec frp-client git config --global user.email "your.email@example.com"
+
+# Clone a repository
+docker exec frp-client git clone https://github.com/example/repo.git /workspace/repo
+
+# Common Git operations
+docker exec frp-client bash -c "cd /workspace/repo && git status"
+docker exec frp-client bash -c "cd /workspace/repo && git add ."
+docker exec frp-client bash -c "cd /workspace/repo && git commit -m 'Update'"
+docker exec frp-client bash -c "cd /workspace/repo && git push"
+```
+
+### With Volume Mount
+
+```bash
+# Mount your project and use Git
+docker run -d \
+  --name frp-client \
+  -v /path/to/your/project:/workspace \
+  -v ~/.ssh:/root/.ssh:ro \
+  -e FRP_MODE=client \
+  frp-docker:latest
+
+# Now you can use Git with SSH keys
+docker exec frp-client bash -c "cd /workspace && git pull"
 ```
 
 ## CLI Commands
