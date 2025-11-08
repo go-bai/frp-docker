@@ -15,6 +15,7 @@ A high-quality, enterprise-grade Docker container for [frp (Fast Reverse Proxy)]
 - **Docker in Docker Support**: Built-in Docker CLI for managing containers (socket mount)
 - **Golang Development Ready**: Pre-installed Go 1.25.4 for building and development
 - **Node.js Development Ready**: Pre-installed NVM v0.40.1 for Node.js version management
+- **Python Development Ready**: Pre-installed uv for ultra-fast Python package management
 - **Git Version Control**: Pre-installed Git for source code management
 - **NVIDIA GPU Support**: Ready for GPU workloads with nvidia-smi support
 - **Ubuntu 22.04 Base**: Stable, well-supported base image with excellent compatibility
@@ -635,6 +636,139 @@ docker run -d \
 
 # Now you can use Git with SSH keys
 docker exec frp-client bash -c "cd /workspace && git pull"
+```
+
+## Python Development with uv
+
+The container includes **uv**, an extremely fast Python package installer and resolver from Astral.
+
+### What is uv?
+
+uv is a blazingly fast Python package installer and resolver, written in Rust. It's designed as a drop-in replacement for pip and pip-tools, offering:
+- 10-100x faster than pip
+- Single static binary with no dependencies
+- pip-compatible interface
+- Advanced dependency resolution
+
+### Basic Usage
+
+```bash
+# Check uv version
+docker exec frp-client uv --version
+
+# Install a package
+docker exec frp-client uv pip install requests
+
+# Install from requirements.txt
+docker exec frp-client uv pip install -r requirements.txt
+
+# Create a virtual environment
+docker exec frp-client uv venv /workspace/myproject/.venv
+
+# Install packages in a virtual environment
+docker exec frp-client bash -c "cd /workspace/myproject && uv pip install --python .venv/bin/python flask"
+```
+
+### Common Commands
+
+```bash
+# Install package (pip-compatible)
+uv pip install <package>
+
+# Install with specific version
+uv pip install "requests==2.31.0"
+
+# Install multiple packages
+uv pip install requests flask pandas
+
+# Install from requirements file
+uv pip install -r requirements.txt
+
+# Uninstall package
+uv pip uninstall <package>
+
+# List installed packages
+uv pip list
+
+# Freeze dependencies
+uv pip freeze > requirements.txt
+
+# Show package info
+uv pip show <package>
+```
+
+### Creating Virtual Environments
+
+```bash
+# Create virtual environment
+docker exec frp-client uv venv /workspace/myenv
+
+# Activate and use
+docker exec frp-client bash -c "source /workspace/myenv/bin/activate && uv pip install django"
+```
+
+### Example: Python Project Setup
+
+```bash
+# Create project structure
+docker exec frp-client bash -c "mkdir -p /workspace/myapp && cd /workspace/myapp"
+
+# Create virtual environment
+docker exec frp-client uv venv /workspace/myapp/.venv
+
+# Install dependencies
+docker exec frp-client bash -c "cd /workspace/myapp && uv pip install --python .venv/bin/python fastapi uvicorn[standard]"
+
+# Create a simple FastAPI app
+docker exec frp-client bash -c 'cat > /workspace/myapp/main.py << EOF
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"message": "Hello from FRP Docker with uv!"}
+EOF'
+
+# Run the app
+docker exec frp-client bash -c "cd /workspace/myapp && .venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000"
+```
+
+### With Volume Mount
+
+```bash
+# Mount your Python project
+docker run -d \
+  --name frp-client \
+  -v /path/to/your/python/project:/workspace \
+  -e FRP_MODE=client \
+  frp-docker:latest
+
+# Use uv in your project
+docker exec frp-client bash -c "cd /workspace && uv pip install -r requirements.txt"
+```
+
+### Performance Comparison
+
+```bash
+# Traditional pip (slow)
+time pip install requests pandas numpy
+
+# With uv (10-100x faster)
+time uv pip install requests pandas numpy
+```
+
+### Advanced Features
+
+```bash
+# Compile requirements with version pinning
+uv pip compile requirements.in -o requirements.txt
+
+# Sync environment with requirements (install/uninstall as needed)
+uv pip sync requirements.txt
+
+# Install packages without modifying existing environment
+uv pip install --no-deps <package>
 ```
 
 ## CLI Commands

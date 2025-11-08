@@ -69,6 +69,14 @@ RUN set -ex && \
     echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> /etc/bash.bashrc && \
     echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"' >> /etc/bash.bashrc
 
+# Install uv (fast Python package installer and resolver)
+ENV UV_HOME=/usr/local/uv \
+    PATH=/root/.local/bin:${PATH}
+
+RUN set -ex && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    uv --version
+
 # Create non-root user for security
 RUN groupadd -g 1000 frp && \
     useradd -u 1000 -g frp -s /bin/bash -m frp
