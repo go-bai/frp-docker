@@ -302,7 +302,7 @@ The container includes these environment variables:
 
 ## Docker in Docker Support
 
-The container includes Docker CLI and docker-compose for managing containers within the FRP client/server.
+The container includes Docker CLI for managing containers within the FRP client/server.
 
 ### How It Works
 
@@ -357,37 +357,6 @@ docker exec frp-client docker build -t myapp:latest /path/to/dockerfile
 docker exec frp-client docker run -d myapp:latest
 ```
 
-**3. Docker Compose Support**
-
-```bash
-# Use docker-compose inside container
-docker exec frp-client docker compose -f /path/to/compose.yml up -d
-docker exec frp-client docker compose ps
-```
-
-### Docker Compose Example
-
-```yaml
-version: '3.8'
-services:
-  frp-client:
-    image: ghcr.io/go-bai/frp-docker:latest
-    container_name: frp-client
-    restart: unless-stopped
-    environment:
-      - FRP_MODE=client
-      - FRP_SERVER_ADDR=your-server.com
-      - FRP_TOKEN=your-auth-token
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # Enable Docker-in-Docker
-      - frp_client_config:/app/configs
-      - frp_client_logs:/app/logs
-
-volumes:
-  frp_client_config:
-  frp_client_logs:
-```
-
 ### Security Considerations
 
 ⚠️ **Important Security Notes:**
@@ -412,9 +381,6 @@ volumes:
 ```bash
 # Check Docker CLI version
 docker exec frp-client docker --version
-
-# Check Docker Compose version
-docker exec frp-client docker compose version
 
 # Test Docker access
 docker exec frp-client docker info
@@ -489,19 +455,6 @@ docker run -d \
 
 # Build your project
 docker exec frp-client sh -c "cd /workspace && go build"
-```
-
-### CI/CD Integration
-
-```yaml
-version: '3.8'
-services:
-  frp-build:
-    image: frp-docker:latest
-    volumes:
-      - ./:/workspace
-    working_dir: /workspace
-    command: sh -c "go build -o bin/app && go test ./..."
 ```
 
 ### Available Go Tools
@@ -804,80 +757,6 @@ Protocol (tcp): tcp
 ✓ Tunnel 'web-service' added successfully!
 ```
 
-## Docker Compose Examples
-
-### Complete Server Setup
-
-```yaml
-version: '3.8'
-services:
-  frp-server:
-    image: ghcr.io/go-bai/frp-docker:latest
-    container_name: frp-server
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      - FRP_MODE=server
-      - FRP_SERVER_PORT=7000
-      - FRP_WEB_PORT=7500
-    volumes:
-      - frp_server_data:/app/configs
-      - frp_server_logs:/app/logs
-    healthcheck:
-      test: ["CMD", "/app/scripts/healthcheck.sh"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-volumes:
-  frp_server_data:
-  frp_server_logs:
-```
-
-### Client with Sidecar Pattern
-
-```yaml
-version: '3.8'
-services:
-  web-app:
-    image: nginx:alpine
-    container_name: web-app
-    ports:
-      - "8080:80"
-
-  frp-client:
-    image: ghcr.io/go-bai/frp-docker:latest
-    container_name: frp-client
-    network_mode: "container:web-app"
-    environment:
-      - FRP_MODE=client
-      - FRP_SERVER_ADDR=your-server.com
-      - FRP_TOKEN=your-auth-token
-    depends_on:
-      - web-app
-```
-
-### GPU-Enabled Client
-
-```yaml
-version: '3.8'
-services:
-  frp-client-gpu:
-    image: ghcr.io/go-bai/frp-docker:latest
-    container_name: frp-client-gpu
-    restart: unless-stopped
-    environment:
-      - FRP_MODE=client
-      - FRP_SERVER_ADDR=your-server.com
-      - FRP_TOKEN=your-auth-token
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-```
-
 ## Security Features
 
 - **Supervisord Process Management**: Robust process supervision and automatic restart
@@ -898,16 +777,11 @@ frp-docker/
 ├── Dockerfile              # Container definition (Ubuntu 22.04)
 ├── Makefile                # Build and test automation
 ├── README.md               # Project documentation
-├── docker-compose.yml      # Multi-container examples
 ├── configs/                # Configuration templates
 │   ├── supervisord.conf    # Supervisord main config
 │   ├── frps.conf           # Server supervisor config
 │   ├── frpc.conf           # Client supervisor config
 │   └── sshd.conf           # SSH server config (client only)
-├── examples/               # Docker Compose examples
-│   ├── client.yml          # Client configuration example
-│   ├── server.yml          # Server configuration example
-│   └── sidecar.yml         # Sidecar deployment example
 ├── scripts/                # Management scripts
 │   ├── entrypoint.sh       # Main entry point
 │   ├── download_frp.sh     # Binary management
