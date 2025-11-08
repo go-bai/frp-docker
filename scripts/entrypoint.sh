@@ -137,6 +137,66 @@ initialize_config() {
     esac
 }
 
+# Setup supervisord for client mode
+setup_supervisord_client() {
+    log_info "Setting up supervisord for client mode..."
+
+    # Copy supervisord main config (overwrite the default one)
+    if [[ -f "${CONFIG_DIR}/supervisord.conf" ]]; then
+        cp -f "${CONFIG_DIR}/supervisord.conf" /etc/supervisord.conf
+        log_info "Supervisord main config copied"
+    else
+        error_exit "Supervisord config not found: ${CONFIG_DIR}/supervisord.conf"
+    fi
+
+    # Copy frpc supervisor config
+    if [[ -f "${CONFIG_DIR}/frpc.conf" ]]; then
+        cp -f "${CONFIG_DIR}/frpc.conf" /etc/supervisor/conf.d/frpc.conf
+        log_info "FRPC supervisor config copied"
+    else
+        error_exit "FRPC supervisor config not found: ${CONFIG_DIR}/frpc.conf"
+    fi
+
+    # Copy sshd supervisor config (autostart=false by default)
+    if [[ -f "${CONFIG_DIR}/sshd.conf" ]]; then
+        cp -f "${CONFIG_DIR}/sshd.conf" /etc/supervisor/conf.d/sshd.conf
+        log_info "SSHD supervisor config copied (autostart=false)"
+    else
+        log_warn "SSHD supervisor config not found, skipping"
+    fi
+
+    # Generate SSH host keys if not exists
+    if [[ ! -f /etc/ssh/ssh_host_rsa_key ]]; then
+        log_info "Generating SSH host keys..."
+        ssh-keygen -A
+    fi
+
+    log_info "Supervisord setup completed for client mode"
+}
+
+# Setup supervisord for server mode
+setup_supervisord_server() {
+    log_info "Setting up supervisord for server mode..."
+
+    # Copy supervisord main config (overwrite the default one)
+    if [[ -f "${CONFIG_DIR}/supervisord.conf" ]]; then
+        cp -f "${CONFIG_DIR}/supervisord.conf" /etc/supervisord.conf
+        log_info "Supervisord main config copied"
+    else
+        error_exit "Supervisord config not found: ${CONFIG_DIR}/supervisord.conf"
+    fi
+
+    # Copy frps supervisor config
+    if [[ -f "${CONFIG_DIR}/frps.conf" ]]; then
+        cp -f "${CONFIG_DIR}/frps.conf" /etc/supervisor/conf.d/frps.conf
+        log_info "FRPS supervisor config copied"
+    else
+        error_exit "FRPS supervisor config not found: ${CONFIG_DIR}/frps.conf"
+    fi
+
+    log_info "Supervisord setup completed for server mode"
+}
+
 # Start FRP service
 start_frp_service() {
     local config_file
@@ -146,32 +206,60 @@ start_frp_service() {
         server)
             binary_name="frps"
             config_file="${CONFIG_DIR}/frps.yaml"
+
+            local binary_path="${FRP_DIR}/${binary_name}"
+
+            if [[ ! -f "${binary_path}" ]]; then
+                error_exit "FRP binary not found: ${binary_path}"
+            fi
+
+            if [[ ! -f "${config_file}" ]]; then
+                error_exit "Configuration file not found: ${config_file}"
+            fi
+
+            # Make binary executable
+            chmod +x "${binary_path}"
+
+            log_info "Starting FRP server with supervisord..."
+            log_info "Binary: ${binary_path}"
+            log_info "Config: ${config_file}"
+
+            # Setup and start supervisord
+            setup_supervisord_server
+
+            # Start supervisord as PID 1
+            log_info "Starting supervisord as PID 1..."
+            exec /usr/bin/supervisord -c /etc/supervisord.conf
             ;;
         client)
             binary_name="frpc"
             config_file="${CONFIG_DIR}/frpc.yaml"
+
+            local binary_path="${FRP_DIR}/${binary_name}"
+
+            if [[ ! -f "${binary_path}" ]]; then
+                error_exit "FRP binary not found: ${binary_path}"
+            fi
+
+            if [[ ! -f "${config_file}" ]]; then
+                error_exit "Configuration file not found: ${config_file}"
+            fi
+
+            # Make binary executable
+            chmod +x "${binary_path}"
+
+            log_info "Starting FRP client with supervisord..."
+            log_info "Binary: ${binary_path}"
+            log_info "Config: ${config_file}"
+
+            # Setup and start supervisord
+            setup_supervisord_client
+
+            # Start supervisord as PID 1
+            log_info "Starting supervisord as PID 1..."
+            exec /usr/bin/supervisord -c /etc/supervisord.conf
             ;;
     esac
-
-    local binary_path="${FRP_DIR}/${binary_name}"
-
-    if [[ ! -f "${binary_path}" ]]; then
-        error_exit "FRP binary not found: ${binary_path}"
-    fi
-
-    if [[ ! -f "${config_file}" ]]; then
-        error_exit "Configuration file not found: ${config_file}"
-    fi
-
-    log_info "Starting FRP ${FRP_MODE} service..."
-    log_info "Binary: ${binary_path}"
-    log_info "Config: ${config_file}"
-
-    # Make binary executable
-    chmod +x "${binary_path}"
-
-    # Start the service with proper signal handling
-    exec "${binary_path}" -c "${config_file}"
 }
 
 # Handle special commands

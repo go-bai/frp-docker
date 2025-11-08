@@ -1,23 +1,28 @@
 # FRP Docker - Enterprise Grade Implementation
 
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://www.linux.org/)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)](https://ubuntu.com/)
+[![NVIDIA](https://img.shields.io/badge/NVIDIA-GPU%20Ready-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](https://www.nvidia.com/)
 [![Shell Script](https://img.shields.io/badge/shell_script-%23121011.svg?style=for-the-badge&logo=gnu-bash&logoColor=white)](https://www.gnu.org/software/bash/)
 
-A high-quality, enterprise-grade Docker container for [frp (Fast Reverse Proxy)](https://github.com/fatedier/frp) with intelligent mode detection, automatic binary management, and advanced CLI tooling. Built with Linus-level code quality standards.
+A high-quality, enterprise-grade Docker container for [frp (Fast Reverse Proxy)](https://github.com/fatedier/frp) with intelligent mode detection, automatic binary management, supervisord process management, and NVIDIA GPU support. Built with enterprise-level code quality standards.
 
-## 🚀 Features
+## Features
 
-- **🔄 Dual Mode Operation**: Seamless server and client mode switching
-- **📱 Intelligent CLI**: Interactive CLI tool for tunnel management
-- **🔐 Security First**: Automatic auth token generation and secure defaults
-- **🏗️ Sidecar Ready**: Perfect for container network namespace sharing
-- **📦 Auto-Download**: Automatic FRP binary download and updates
-- **🎯 Multi-Arch**: Support for AMD64 and ARM64 architectures
-- **🔍 Health Checks**: Built-in health monitoring for both modes
-- **📊 Enterprise Ready**: Comprehensive logging and configuration management
+- **Dual Mode Operation**: Seamless server and client mode switching
+- **Supervisord Process Management**: Both modes use supervisord as PID 1 for robust process management
+- **Built-in SSH Server**: Optional SSH server for client mode (disabled by default)
+- **NVIDIA GPU Support**: Ready for GPU workloads with nvidia-smi support
+- **Ubuntu 22.04 Base**: Stable, well-supported base image with excellent compatibility
+- **Intelligent CLI**: Interactive CLI tool for tunnel management (client mode)
+- **Security First**: Automatic auth token generation and secure defaults
+- **Sidecar Ready**: Perfect for container network namespace sharing
+- **Auto-Download**: Automatic FRP binary download and updates
+- **Multi-Arch**: Support for AMD64 and ARM64 architectures
+- **Health Checks**: Built-in health monitoring for both modes
+- **Enterprise Ready**: Comprehensive logging and configuration management
 
-## 📦 Installation
+## Installation
 
 ```bash
 # Pull the latest image from GitHub Container Registry
@@ -31,7 +36,7 @@ docker pull ghcr.io/go-bai/frp-docker:v1.0.0
 - `latest` - Latest stable release
 - `v1.0.0` - Specific version release
 
-## 📋 Quick Start
+## Quick Start
 
 ### Server Mode
 
@@ -45,6 +50,9 @@ docker run -d \
 
 # Get authentication token
 docker exec frp-server cat /app/configs/server_auth.txt
+
+# Check server status
+docker exec frp-server supervisorctl status
 ```
 
 ### Client Mode
@@ -62,6 +70,43 @@ docker run -d \
 
 # Access interactive CLI
 docker exec -it frp-client frp-cli
+
+# Check client status
+docker exec frp-client supervisorctl status
+```
+
+### Client Mode with SSH Server
+
+```bash
+# Start FRP client
+docker run -d \
+  --name frp-client \
+  --network host \
+  -e FRP_MODE=client \
+  -e FRP_SERVER_ADDR=YOUR_SERVER_IP \
+  -e FRP_TOKEN=YOUR_AUTH_TOKEN \
+  ghcr.io/go-bai/frp-docker:latest
+
+# Enable SSH server (listens on port 22222)
+docker exec frp-client supervisorctl start sshd
+
+# Check SSH status
+docker exec frp-client netstat -tlnp | grep 22222
+```
+
+### GPU-Enabled Container
+
+```bash
+# Start with GPU support (requires nvidia-container-toolkit on host)
+docker run -d --gpus all \
+  --name frp-client-gpu \
+  -e FRP_MODE=client \
+  -e FRP_SERVER_ADDR=YOUR_SERVER_IP \
+  -e FRP_TOKEN=YOUR_AUTH_TOKEN \
+  ghcr.io/go-bai/frp-docker:latest
+
+# Test GPU access
+docker exec frp-client-gpu nvidia-smi
 ```
 
 ### Sidecar Mode
@@ -80,19 +125,7 @@ docker run -d \
   ghcr.io/go-bai/frp-docker:latest
 ```
 
-## 🛠️ Installation & Building
-
-### Using Pre-built Images (Recommended)
-
-```bash
-# Pull the latest image
-docker pull ghcr.io/go-bai/frp-docker:latest
-
-# Or pull a specific version
-docker pull ghcr.io/go-bai/frp-docker:v1.0.0
-```
-
-### Building from Source
+## Building from Source
 
 ```bash
 git clone https://github.com/go-bai/frp-docker.git
@@ -100,7 +133,7 @@ cd frp-docker
 make build
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -114,6 +147,8 @@ make build
 | `FRP_TOKEN` | - | Authentication token |
 | `FRP_LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 | `FRP_ARCH` | auto-detect | Architecture: `amd64`, `arm64` |
+| `NVIDIA_VISIBLE_DEVICES` | `all` | GPU devices to expose |
+| `NVIDIA_DRIVER_CAPABILITIES` | `compute,utility` | GPU capabilities to enable |
 
 ### Networking Options
 
@@ -121,7 +156,146 @@ make build
 2. **Container Network**: `--network container:other-container` (sidecar mode)
 3. **Bridge Network**: Default Docker bridge networking
 
-## 🎮 CLI Commands
+## Process Management with Supervisord
+
+Both server and client modes use supervisord as PID 1 for robust process management.
+
+### Server Mode Process Tree
+```
+supervisord (PID 1)
+└── frps (runs as frp user)
+```
+
+### Client Mode Process Tree
+```
+supervisord (PID 1)
+├── frpc (runs as frp user, autostart=true)
+└── sshd (runs as root, autostart=false, port 22222)
+```
+
+### Managing Services
+
+```bash
+# Check status
+docker exec <container-name> supervisorctl status
+
+# Start a service
+docker exec <container-name> supervisorctl start <service-name>
+
+# Stop a service
+docker exec <container-name> supervisorctl stop <service-name>
+
+# Restart a service
+docker exec <container-name> supervisorctl restart <service-name>
+
+# View all available commands
+docker exec <container-name> supervisorctl help
+```
+
+### Service Names
+
+- **Server mode**: `frps`
+- **Client mode**: `frpc`, `sshd`
+
+### Examples
+
+```bash
+# Server: restart FRP server
+docker exec frp-server supervisorctl restart frps
+
+# Client: enable SSH access
+docker exec frp-client supervisorctl start sshd
+
+# Client: restart FRP client
+docker exec frp-client supervisorctl restart frpc
+
+# Client: check all services
+docker exec frp-client supervisorctl status
+```
+
+## SSH Server (Client Mode Only)
+
+The client mode includes an optional SSH server that can be enabled for remote access to the container.
+
+### Configuration
+- **Port**: 22222 (listens on all interfaces)
+- **Default State**: Disabled (`autostart=false`)
+- **Configuration File**: `/etc/supervisor/conf.d/sshd.conf`
+
+### Enable SSH Access
+
+```bash
+# 1. Start the SSH service
+docker exec frp-client supervisorctl start sshd
+
+# 2. Set root password (optional, if needed)
+docker exec frp-client bash -c "echo 'root:your-password' | chpasswd"
+
+# 3. Add your public key for key-based auth (recommended)
+docker exec frp-client mkdir -p /root/.ssh
+docker cp ~/.ssh/id_rsa.pub frp-client:/root/.ssh/authorized_keys
+docker exec frp-client chmod 600 /root/.ssh/authorized_keys
+
+# 4. Connect via SSH
+ssh root@<container-ip> -p 22222
+```
+
+### Persistent SSH Host Keys
+
+To avoid SSH host key warnings when recreating containers:
+
+```bash
+docker run -d \
+  --name frp-client \
+  -v ssh-keys:/etc/ssh \
+  -e FRP_MODE=client \
+  ghcr.io/go-bai/frp-docker:latest
+```
+
+## NVIDIA GPU Support
+
+The container is pre-configured for GPU workloads.
+
+### Prerequisites
+
+**Host Requirements:**
+1. NVIDIA GPU driver installed
+2. nvidia-container-toolkit installed
+
+```bash
+# Install nvidia-container-toolkit (Ubuntu/Debian)
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
+  sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo systemctl restart docker
+```
+
+### Using GPU in Container
+
+```bash
+# Enable all GPUs
+docker run -d --gpus all \
+  --name frp-client \
+  -e FRP_MODE=client \
+  ghcr.io/go-bai/frp-docker:latest
+
+# Enable specific GPU(s)
+docker run -d --gpus '"device=0"' ...        # GPU 0 only
+docker run -d --gpus '"device=0,1"' ...      # GPU 0 and 1
+
+# Test GPU access
+docker exec frp-client nvidia-smi
+```
+
+### GPU Environment Variables
+
+The container includes these environment variables:
+- `NVIDIA_VISIBLE_DEVICES=all` - Exposes all GPUs to the container
+- `NVIDIA_DRIVER_CAPABILITIES=compute,utility` - Enables CUDA compute and nvidia-smi
+
+## CLI Commands
 
 The interactive CLI provides essential tunnel management for client mode:
 
@@ -154,7 +328,7 @@ Protocol (tcp): tcp
 ✓ Tunnel 'web-service' added successfully!
 ```
 
-## 📚 Docker Compose Examples
+## Docker Compose Examples
 
 ### Complete Server Setup
 
@@ -206,26 +380,54 @@ services:
       - web-app
 ```
 
-## 🔒 Security Features
+### GPU-Enabled Client
 
+```yaml
+version: '3.8'
+services:
+  frp-client-gpu:
+    image: ghcr.io/go-bai/frp-docker:latest
+    container_name: frp-client-gpu
+    restart: unless-stopped
+    environment:
+      - FRP_MODE=client
+      - FRP_SERVER_ADDR=your-server.com
+      - FRP_TOKEN=your-auth-token
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+```
+
+## Security Features
+
+- **Supervisord Process Management**: Robust process supervision and automatic restart
 - **Automatic Token Generation**: Cryptographically secure authentication tokens
-- **Non-Root Execution**: Runs as dedicated `frp` user (UID 1000)
+- **Service Isolation**: FRP runs as dedicated `frp` user (UID 1000)
+- **SSH Optional**: SSH server disabled by default (client mode)
 - **Input Validation**: Comprehensive input sanitization and validation
 - **Secure Defaults**: Conservative security settings out-of-the-box
 - **Health Monitoring**: Continuous health checks for early issue detection
 
-## 📁 File Structure
+## File Structure
 
 ### Project Structure (Source)
 
 ```
 frp-docker/
 ├── build.sh                # Build automation script
-├── Dockerfile              # Container definition
+├── Dockerfile              # Container definition (Ubuntu 22.04)
 ├── Makefile                # Build and test automation
 ├── README.md               # Project documentation
 ├── docker-compose.yml      # Multi-container examples
-├── configs/                # Default configuration templates
+├── configs/                # Configuration templates
+│   ├── supervisord.conf    # Supervisord main config
+│   ├── frps.conf           # Server supervisor config
+│   ├── frpc.conf           # Client supervisor config
+│   └── sshd.conf           # SSH server config (client only)
 ├── examples/               # Docker Compose examples
 │   ├── client.yml          # Client configuration example
 │   ├── server.yml          # Server configuration example
@@ -255,23 +457,37 @@ frp-docker/
 │   ├── VERSION             # Installed version
 │   └── INFO                # Installation metadata
 ├── configs/                # Configuration files
+│   ├── supervisord.conf    # Supervisord config
+│   ├── frps.conf           # Server supervisor config
+│   ├── frpc.conf           # Client supervisor config
+│   ├── sshd.conf           # SSH server config
 │   ├── frps.yaml           # Server config (YAML format)
 │   ├── frpc.yaml           # Client config (YAML format)
 │   ├── server_auth.txt     # Server auth info
 │   └── client_state.json   # Client tunnel state
 ├── logs/                   # Log files
-│   ├── frps.log            # Server logs
-│   └── frpc.log            # Client logs
-└── scripts/                # Management scripts (copied from source)
+│   ├── supervisord.log     # Supervisord logs
+│   ├── frps_stdout.log     # Server stdout
+│   ├── frps_stderr.log     # Server stderr
+│   ├── frpc_stdout.log     # Client stdout
+│   ├── frpc_stderr.log     # Client stderr
+│   ├── sshd_stdout.log     # SSH stdout (if enabled)
+│   └── sshd_stderr.log     # SSH stderr (if enabled)
+└── scripts/                # Management scripts
     ├── entrypoint.sh       # Main entry point
     ├── download_frp.sh     # Binary management
     ├── server_init.sh      # Server initialization
     ├── client_init.sh      # Client initialization
     ├── frp_cli.sh          # Interactive CLI
     └── healthcheck.sh      # Health monitoring
+
+/etc/supervisor/conf.d/     # Supervisor service configs
+├── frps.conf               # Server service (server mode)
+├── frpc.conf               # Client service (client mode)
+└── sshd.conf               # SSH service (client mode, disabled by default)
 ```
 
-## 🔧 Advanced Usage
+## Advanced Usage
 
 ### Custom Binary Version
 
@@ -296,13 +512,17 @@ docker run --network frp-net --name app my-app
 docker run --network container:app --name frp-client ghcr.io/go-bai/frp-docker:latest
 ```
 
-### Persistent Configuration
+### Persistent Configuration and SSH Keys
 
 ```bash
-docker run -v $(pwd)/frp-config:/app/configs ghcr.io/go-bai/frp-docker:latest
+docker run -d \
+  -v $(pwd)/frp-config:/app/configs \
+  -v ssh-keys:/etc/ssh \
+  -e FRP_MODE=client \
+  ghcr.io/go-bai/frp-docker:latest
 ```
 
-## 📊 Monitoring & Logging
+## Monitoring & Logging
 
 ### Health Checks
 
@@ -314,26 +534,48 @@ Built-in health checks monitor:
 
 ### Log Management
 
-- Automatic log rotation (7 days retention)
+- Automatic log rotation (configured in supervisord)
 - Structured logging with timestamps
-- Separate server/client log streams
+- Separate stdout/stderr streams for each service
 - Debug mode for troubleshooting
+- Centralized logs in `/app/logs/`
+
+### Viewing Logs
+
+```bash
+# View supervisord logs
+docker exec frp-server cat /app/logs/supervisord.log
+
+# View FRP server logs
+docker exec frp-server cat /app/logs/frps_stdout.log
+
+# View FRP client logs
+docker exec frp-client cat /app/logs/frpc_stdout.log
+
+# View SSH logs (if enabled)
+docker exec frp-client cat /app/logs/sshd_stdout.log
+
+# Follow logs in real-time
+docker exec frp-server tail -f /app/logs/frps_stdout.log
+```
 
 ### Web Dashboard (Server Mode)
 
 Access the web dashboard at `http://server-ip:7500`:
 - Username: `admin`
-- Password: `<auth-token>`
+- Password: `<auth-token>` (from `/app/configs/server_auth.txt`)
 
-## 🚀 Performance & Scalability
+## Performance & Scalability
 
-- **Lightweight**: Alpine Linux base (~50MB total)
+- **Ubuntu 22.04 Base**: ~250MB image size
+- **Supervisord Management**: Efficient process supervision
 - **Fast Startup**: Intelligent caching and binary reuse
 - **Resource Efficient**: Minimal CPU and memory footprint
 - **Connection Pooling**: Optimized connection management
 - **Compression**: Built-in data compression support
+- **GPU Ready**: Optimized for GPU workloads
 
-## 🛟 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -341,6 +583,9 @@ Access the web dashboard at `http://server-ip:7500`:
    ```bash
    # Check server is listening
    docker exec frp-server netstat -tlnp | grep 7000
+
+   # Check supervisord status
+   docker exec frp-server supervisorctl status
 
    # Verify firewall settings
    docker exec frp-server /app/scripts/healthcheck.sh
@@ -353,7 +598,6 @@ Access the web dashboard at `http://server-ip:7500`:
 
    # Update client token and access CLI
    docker exec -it frp-client frp-cli
-   # Then use CLI to reconfigure with new token
    ```
 
 3. **Binary Download Issues**
@@ -363,14 +607,63 @@ Access the web dashboard at `http://server-ip:7500`:
    docker restart frp-client
    ```
 
+4. **Service Not Starting**
+   ```bash
+   # Check supervisord logs
+   docker exec <container> cat /app/logs/supervisord.log
+
+   # Check service-specific logs
+   docker exec <container> cat /app/logs/frps_stderr.log
+   docker exec <container> cat /app/logs/frpc_stderr.log
+
+   # Restart service
+   docker exec <container> supervisorctl restart <service-name>
+   ```
+
+5. **SSH Connection Issues**
+   ```bash
+   # Check if SSH is running
+   docker exec frp-client supervisorctl status sshd
+
+   # Check SSH logs
+   docker exec frp-client cat /app/logs/sshd_stderr.log
+
+   # Verify SSH is listening
+   docker exec frp-client netstat -tlnp | grep 22222
+   ```
+
+6. **GPU Not Detected**
+   ```bash
+   # Check if nvidia-smi is available
+   docker exec <container> nvidia-smi
+
+   # Verify GPU environment variables
+   docker exec <container> env | grep NVIDIA
+
+   # Check host GPU status
+   nvidia-smi
+
+   # Verify nvidia-container-toolkit is installed
+   docker run --rm --gpus all ubuntu:22.04 nvidia-smi
+   ```
+
 ### Debug Mode
 
 ```bash
+# Enable debug logging
 docker run -e FRP_LOG_LEVEL=debug ghcr.io/go-bai/frp-docker:latest
+
+# View container logs
 docker logs -f container-name
+
+# View supervisord logs
+docker exec container-name cat /app/logs/supervisord.log
+
+# Interactive shell for debugging
+docker exec -it container-name bash
 ```
 
-## 🧪 Testing
+## Testing
 
 This project includes a comprehensive test suite to ensure reliability and functionality.
 
@@ -399,7 +692,7 @@ This project includes a comprehensive test suite to ensure reliability and funct
 
 See [`tests/README.md`](tests/README.md) for detailed test documentation.
 
-## 🤝 Contributing
+## Contributing
 
 This project follows enterprise-grade development practices:
 
@@ -409,16 +702,18 @@ This project follows enterprise-grade development practices:
 - Health monitoring and observability
 - Clean, maintainable code architecture
 
-## 📄 License
+## License
 
 MIT License - see LICENSE file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [fatedier/frp](https://github.com/fatedier/frp) - The excellent FRP project
-- Alpine Linux team for the lightweight base image
+- Ubuntu team for the stable base image
+- NVIDIA for GPU container runtime
+- Supervisord for process management
 - Docker community for containerization standards
 
 ---
 
-**Built with ❤️ and enterprise-grade quality standards**
+**Built with enterprise-grade quality standards**
